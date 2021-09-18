@@ -1,11 +1,13 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
 
 namespace RunFFMPEG
 {
+
     static class Program
     {
         /// <summary>
@@ -20,8 +22,10 @@ namespace RunFFMPEG
                 string[] args = Environment.GetCommandLineArgs();
                 if (args.Length > 1)
                 {
+                    TimeSpan idleTime = GetIdleTime();
+                    //throw new Exception("Current idle time is: " + idleTime.ToString(@"dd\.hh\:mm\:ss\.ff"));
+                   string s = args[1].Trim('"');
                     iN = args[1];
-                    string s = args[1].Trim('"');
                     string fname = Path.GetFileNameWithoutExtension(s);
                     string fpath = Path.GetDirectoryName(s);
                     string outFileName = fpath + "\\" + Path.GetRandomFileName() + ".jpeg";
@@ -30,6 +34,8 @@ namespace RunFFMPEG
                     string s1 = "ffmpeg -i " + s + " -vf drawtext=\"fontfile=/Windows/Fonts/Montserrat-Regular.ttf: text='" + fname + "':fontcolor=white@1.0:box=1:boxcolor=silver@1.0:fontsize=30:x=1000:y=40\" -y " + outFileName;
                     string cmdline = (Path.GetFileName(Path.GetDirectoryName(s)).EndsWith('3') ? s3 : s1);
                     cL = cmdline;
+                    if (idleTime.TotalDays > 0 ? false : idleTime.TotalHours >0 ? false: idleTime.Minutes < 5) {
+                    //Put the timestamp on the non-idle screenshot
                     Process proc = new Process();
                     proc.StartInfo.FileName = "CMD.exe";
                     proc.StartInfo.Arguments = "/c " + cmdline;
@@ -38,7 +44,7 @@ namespace RunFFMPEG
                     proc.StartInfo.CreateNoWindow = true;
                     proc.Start();
                     bool hasExited = true;
-                        //proc.WaitForExit(50000);
+                    //proc.WaitForExit(50000);
                     int fiftyCounter = 0;
                     while (!proc.HasExited)
                     {
@@ -66,6 +72,23 @@ namespace RunFFMPEG
                          Environment.NewLine);
                     }
                     return;
+                    }
+                    else
+                    {
+                        //delete the idle screens
+                        if (WaitForFile(s, FileMode.Open, FileAccess.ReadWrite, FileShare.None, 20, 1000))
+                        {
+                            File.Delete(s);
+                        }
+                        else
+                        {
+                            throw new Exception("unable to delete the input file after 20 secs of waiting!!" +
+                             Environment.NewLine + "input: " + args[1] +
+                             Environment.NewLine + "tempfile: " + outFileName +
+                             Environment.NewLine + "ffmpeg command: " + cmdline +
+                             Environment.NewLine);
+                        }
+                    }
                 }
                 else
                 {
@@ -80,6 +103,27 @@ namespace RunFFMPEG
             }
         }
 
+        #region imports
+        [DllImport("user32.dll")]
+        public static extern bool GetLastInputInfo(ref LASTINPUTINFO plii);
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Auto, ExactSpelling = true)]
+        public static extern int GetTickCount();
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct LASTINPUTINFO
+        {
+            public static readonly int SizeOf = Marshal.SizeOf(typeof(LASTINPUTINFO));
+
+            [MarshalAs(UnmanagedType.U4)]
+            public int cbSize;
+
+            [MarshalAs(UnmanagedType.U4)]
+            public UInt32 dwTime;
+        }
+        #endregion
+
+        #region utils
         private static string getExMessage(Exception ex, string prevMsg)
         {
             return ex.InnerException != null ? prevMsg + Environment.NewLine + getExMessage(ex.InnerException, prevMsg) : prevMsg + Environment.NewLine + ex.Message; 
@@ -116,5 +160,22 @@ namespace RunFFMPEG
 
             return false;
         }
+        private static TimeSpan GetIdleTime()
+        {
+            TimeSpan idleTime = TimeSpan.FromMilliseconds(0);
+
+            LASTINPUTINFO lastInputInfo = new LASTINPUTINFO();
+            lastInputInfo.cbSize = Marshal.SizeOf(lastInputInfo);
+            lastInputInfo.dwTime = 0;
+
+            if (GetLastInputInfo(ref lastInputInfo))
+            {
+                idleTime = TimeSpan.FromMilliseconds(GetTickCount() - (lastInputInfo.dwTime & uint.MaxValue));
+                //idleTime = TimeSpan.FromSeconds(Convert.ToInt32(lastInputInfo.dwTime / 1000));
+            }
+
+            return idleTime;
+        }
+        #endregion
     }
 }
