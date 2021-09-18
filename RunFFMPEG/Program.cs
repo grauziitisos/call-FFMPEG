@@ -1,13 +1,6 @@
 using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
 using System.Diagnostics;
-using System.Drawing;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace RunFFMPEG
@@ -35,7 +28,9 @@ namespace RunFFMPEG
                     Process proc = new Process();
                     proc.StartInfo.FileName = "CMD.exe";
                     proc.StartInfo.Arguments = "/c " + cmdline;
-                    proc.StartInfo.WindowStyle = ProcessWindowStyle.Hidden;
+                    //proc.StartInfo.WindowStyle = ProcessWindowStyle.Hidden;
+                    proc.StartInfo.UseShellExecute = false;
+                    proc.StartInfo.CreateNoWindow = true;
                     proc.Start();
                     proc.WaitForExit();
                     File.Delete(s);
