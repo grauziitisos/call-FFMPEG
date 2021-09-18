@@ -34,9 +34,9 @@ namespace RunFFMPEG
                     string s1 = "ffmpeg -i " + s + " -vf drawtext=\"fontfile=/Windows/Fonts/Montserrat-Regular.ttf: text='" + fname + "':fontcolor=white@1.0:box=1:boxcolor=silver@1.0:fontsize=30:x=1000:y=40\" -y " + outFileName;
                     string cmdline = (Path.GetFileName(Path.GetDirectoryName(s)).EndsWith('3') ? s3 : s1);
                     cL = cmdline;
-                    if (idleTime.TotalDays > 0 ? false : idleTime.TotalHours >0 ? false: idleTime.Minutes < 5) {
-                    //Put the timestamp on the non-idle screenshot
-                    Process proc = new Process();
+                    if (idleTime.TotalDays > 1 ? false : idleTime.TotalHours >1 ? false: idleTime.Minutes < 5) {
+                        //Put the timestamp on the non-idle screenshot
+                        Process proc = new Process();
                     proc.StartInfo.FileName = "CMD.exe";
                     proc.StartInfo.Arguments = "/c " + cmdline;
                     //proc.StartInfo.WindowStyle = ProcessWindowStyle.Hidden;
@@ -75,9 +75,15 @@ namespace RunFFMPEG
                     }
                     else
                     {
+                        if(!File.Exists(s)) throw new Exception("File does not exist!!!" +
+                             Environment.NewLine + "input: " + args[1] +
+                             Environment.NewLine + "tempfile: " + outFileName +
+                             Environment.NewLine);
                         //delete the idle screens
                         if (WaitForFile(s, FileMode.Open, FileAccess.ReadWrite, FileShare.None, 20, 1000))
                         {
+                            //wait for the closing and disposing to happen...
+                            Thread.Sleep(1000);
                             File.Delete(s);
                         }
                         else
@@ -85,7 +91,6 @@ namespace RunFFMPEG
                             throw new Exception("unable to delete the input file after 20 secs of waiting!!" +
                              Environment.NewLine + "input: " + args[1] +
                              Environment.NewLine + "tempfile: " + outFileName +
-                             Environment.NewLine + "ffmpeg command: " + cmdline +
                              Environment.NewLine);
                         }
                     }
@@ -144,9 +149,12 @@ namespace RunFFMPEG
                 FileStream fs = null;
                 try
                 {
-                    fs = new FileStream(fullPath, mode, access, share);
-                    fs.Dispose();
-                    return true;
+                    using (fs = new FileStream(fullPath, mode, access, share))
+                    {
+                        //fs.Close();
+                        //fs.Dispose();
+                        return true;
+                    }
                 }
                 catch (IOException)
                 {
